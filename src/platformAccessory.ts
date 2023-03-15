@@ -1,5 +1,6 @@
 import pyatv, { NodePyATVDevice, NodePyATVDeviceEvent, NodePyATVPowerState } from '@sebbo2002/node-pyatv';
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
+import NodePersist from 'node-persist';
 
 import { AppleTVPlatform } from './platform';
 
@@ -14,9 +15,9 @@ export class AppleTVAccessory {
   private powerStateService: Service;
   private genericServices: { [property: string]: { [value: string]: Service } } = {};
 
-  //private cachedPowerState = false;
+  private cachedPowerState = false;
 
-  private storage = require('node-persist');
+  private storage: NodePersist.LocalStorage = require('node-persist');
 
   constructor(
     private readonly platform: AppleTVPlatform,
@@ -43,11 +44,15 @@ export class AppleTVAccessory {
       .onGet(this.getCachedPowerState.bind(this));
     this.atv.on('update:powerState', async (event: NodePyATVDeviceEvent | Error) => {
       if (event instanceof Error) {
+        this.platform.log.error('update:powerState error: ', event);
         return;
       }
-      this.powerStateService.getCharacteristic(this.platform.Characteristic.On).updateValue(event.newValue === NodePyATVPowerState.on);
-      await this.storage.setItem('cachedPowerState', event.newValue === NodePyATVPowerState.on);
-      //this.cachedPowerState = event.newValue === NodePyATVPowerState.on;
+
+      const newPowerState = event.newValue === NodePyATVPowerState.on;
+      this.powerStateService.getCharacteristic(this.platform.Characteristic.On).updateValue(newPowerState);
+      this.cachedPowerState = newPowerState;
+      await this.storage.setItem('cachedPowerState', newPowerState);
+      this.platform.log.info('Detected power state update from Apple TV: ' + newPowerState);
     });
 
     if (!this.accessory.context.device.generic_sensors) {
@@ -105,38 +110,34 @@ export class AppleTVAccessory {
   async setOn(value: CharacteristicValue) {
     if (value) {
       await this.atv.turnOn();
-      //this.cachedPowerState = true;
+      this.cachedPowerState = true;
       await this.storage.setItem('cachedPowerState', true);
       this.platform.log.info('Set cachedPowerState: true');
     } else {
       await this.atv.turnOff();
-      //this.cachedPowerState = false;
+      this.cachedPowerState = false;
       await this.storage.setItem('cachedPowerState', false);
       this.platform.log.info('Set cachedPowerState: false');
     }
   }
 
   async getCachedPowerState(): Promise<CharacteristicValue> {
-    //const cachedValue = this.cachedPowerState;
     let cachedValue = await this.storage.getItem('cachedPowerState');
     if (cachedValue === undefined) {
-      cachedValue = false;
+      this.platform.log.info('Node-persist returned undefined. Using RAM cachedPowerState.');
+      cachedValue = this.cachedPowerState;
     }
     this.platform.log.info('Retrieved cachedPowerState: ' + cachedValue);
     return cachedValue;
   }
 
   async loadInitialPowerState() {
-    // const initialState = await this.atv.getState();
-    // const initialPowerState = initialState.powerState;
-    // this.platform.log.info('Initial power state: ' + initialPowerState);
     this.platform.log.info('Initializing node-persist...');
     await this.storage.init({
       dir: 'homebridgeAppleTv',
       stringify: JSON.stringify,
       parse: JSON.parse,
       encoding: 'utf8',
-      ttl: false,
     });
 
     const startupPowerState = await this.getCachedPowerState();
