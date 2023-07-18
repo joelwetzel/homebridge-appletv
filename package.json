@@ -1,15 +1,18 @@
 {
   "displayName": "Homebridge AppleTV",
-  "name": "@hujohner/homebridge-appletv",
-  "version": "1.1.0",
-  "description": "A short description about what your plugin does.",
+  "name": "@joelwetzel/homebridge-appletv",
+  "version": "1.2.0",
+  "description": "A Homebridge plugin for controlling power to an AppleTV.",
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/HuJohner/homebridge-appletv.git"
+    "url": "https://github.com/joelwetzel/homebridge-appletv"
   },
   "bugs": {
-    "url": "https://github.com/HuJohner/homebridge-appletv/issues"
+    "url": "https://github.com/joelwetzel/homebridge-appletv/issues"
   },
   "engines": {
     "node": ">=14.18.1",
